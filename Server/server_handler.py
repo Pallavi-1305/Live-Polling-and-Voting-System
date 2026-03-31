@@ -9,7 +9,9 @@ stats = {
     "total_packets_received": 0,
     "valid_votes": 0,
     "duplicate_votes": 0,
-    "invalid_packets": 0
+    "invalid_packets": 0,
+    "initial_packet_losses": 0,
+    "retransmissions_recovered": 0
 }
 
 def handle_packet(server, data, addr, lock):
@@ -21,7 +23,7 @@ def handle_packet(server, data, addr, lock):
         server.sendto(b"READY", addr)
         return
 
-    # Attempt packet
+    # ATTEMPT packet
     try:
         text_data = data.decode()
         if text_data.startswith("ATTEMPT|"):
@@ -29,13 +31,20 @@ def handle_packet(server, data, addr, lock):
                 stats["total_vote_attempts"] += 1
             print(f"Vote attempt registered from {addr}")
             return
+
+        # LOSS NOTICE packet
+        if text_data.startswith("LOSS_NOTICE|"):
+            with lock:
+                stats["initial_packet_losses"] += 1
+            print(f"Initial packet loss reported from {addr}")
+            return
     except:
         pass
 
     with lock:
         stats["total_packets_received"] += 1
 
-    # Decrypt message
+    # Decrypt vote packet
     try:
         decrypted = decrypt_message(data)
         client_id, vote = decrypted.split("|")
@@ -75,6 +84,10 @@ def handle_packet(server, data, addr, lock):
         votes[party] += 1
         voted_clients.add(client_id)
         stats["valid_votes"] += 1
+
+        # If packet was initially lost but later recovered
+        if stats["initial_packet_losses"] > stats["retransmissions_recovered"]:
+            stats["retransmissions_recovered"] += 1
 
     print(f"\nVote accepted from: {client_id} -> {party}")
     print(f"Current Vote Count: {votes}")

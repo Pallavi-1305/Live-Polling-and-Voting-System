@@ -42,7 +42,9 @@ def print_statistics():
         with lock:
             expected_packets = stats["total_vote_attempts"]
             actual_packets = stats["total_packets_received"]
-            lost_packets = expected_packets - actual_packets
+            lost_packets = stats["initial_packet_losses"]
+            recovered_packets = stats["retransmissions_recovered"]
+
             loss_percentage = (lost_packets / expected_packets) * 100 if expected_packets > 0 else 0
 
             print("\n========== STATISTICAL LOSS ANALYSIS ==========")
@@ -51,7 +53,8 @@ def print_statistics():
             print(f"Valid Votes: {stats['valid_votes']}")
             print(f"Duplicate Votes: {stats['duplicate_votes']}")
             print(f"Invalid Packets: {stats['invalid_packets']}")
-            print(f"Estimated Lost Packets: {lost_packets}")
+            print(f"Initial Packet Losses: {lost_packets}")
+            print(f"Retransmissions Recovered: {recovered_packets}")
             print(f"Packet Loss Percentage: {loss_percentage:.2f}%")
             print("===============================================\n")
 

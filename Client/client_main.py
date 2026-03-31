@@ -42,7 +42,7 @@ print("1. BJP\n2. Congress\n3. JDS")
 vote = input("Enter vote (1/2/3): ").strip()
 client_id = input("Enter Client ID: ").strip()
 
-# Only validate client ID here
+# Validate only client ID here
 if not validate_client_id(client_id):
     print("Invalid Client ID format")
     client.close()
@@ -58,14 +58,8 @@ encrypted = encrypt_message(message)
 # Start response time measurement
 start_time = time.time()
 
-# Step 2: Simulate packet loss for actual vote packet
-if random.random() < LOSS_PROBABILITY:
-    print("\n⚠ Simulated Packet Loss: Vote packet was dropped and NOT sent to server.")
-else:
-    client.sendto(encrypted, server_address)
-    print("Encrypted vote sent...")
-
-    # First receive vote response separately
+# Function to receive first response
+def receive_server_response():
     try:
         response, _ = client.recvfrom(4096)
         end_time = time.time()
@@ -73,13 +67,38 @@ else:
         print("\n[SERVER RESPONSE]")
         print(response.decode())
         print(f"Response Time: {(end_time - start_time) * 1000:.2f} ms")
-
+        return True
     except socket.timeout:
-        print("No response from server (packet may be lost).")
+        print("No response from server.")
+        return False
     except ConnectionResetError:
         print("Connection reset while waiting for server response.")
+        return False
 
-# Function to keep receiving broadcasts AFTER vote is sent / dropped
+# Step 2: Simulate packet loss for actual vote packet
+if random.random() < LOSS_PROBABILITY:
+    print("\n⚠ Simulated Packet Loss: Vote packet was dropped and NOT sent to server.")
+
+    # Notify server that initial packet was lost
+    loss_notice = f"LOSS_NOTICE|{client_id}"
+    client.sendto(loss_notice.encode(), server_address)
+
+    print("Retransmitting vote automatically in 2 seconds...")
+    time.sleep(2)
+
+    # Automatic retransmission
+    client.sendto(encrypted, server_address)
+    print("Vote retransmitted successfully...")
+
+    receive_server_response()
+
+else:
+    client.sendto(encrypted, server_address)
+    print("Encrypted vote sent...")
+
+    receive_server_response()
+
+# Function to keep receiving broadcasts
 def receive_messages():
     global running
     while running:
